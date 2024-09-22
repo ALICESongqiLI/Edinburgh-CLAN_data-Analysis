@@ -1,0 +1,57 @@
+---
+title: "FLA"
+author: "alice"
+date: "2022/7/27"
+output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+getwd() setwd('C:/Users/Dell/Desktop/CLAN PROJECT')
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax
+for authoring HTML, PDF, and MS Word documents. For more details on
+using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that
+includes both content as well as the output of any embedded R code
+chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+# install.packages("tidyverse")
+# install.packages("tidyverse")
+# install.packages("emmeans")
+# install.packages("ggfortify")
+# install.packages("readxl")
+library(tidyverse)
+library(readxl)
+library(ggfortify)
+library(dplyr)
+
+```
+
+```{r}
+# line plot 正式版
+# v1.基于selected data,即两次test point都有有效值（共三组数据）
+
+dataStudy2_selected <- read_excel("Study2-1_selected_data.xlsx")
+ggplot(dataStudy2_selected, aes(x = test, y = overlap, group = group)) +
+  geom_line(aes(linetype = group)) +
+  labs(title = "Fig1. Analysis of Study2: The line chart of mother and child overlap (selected data) at test 1 & 2")#
+```
+
+```{r}
+# line plot 正式版
+# v2.基于full data,即两次test point中有NA的地方算作0计算（共14组数据）
+dataStudy2_full <- read_excel("Study2-2_full_data.xlsx")
+ggplot(dataStudy2_full, aes(x = test, y = overlap, group = group)) +
+  geom_line(aes(linetype = group)) +
+  labs(title = "Fig2. Analysis of Study2: The line chart of mother and child overlap (full data) at test 1 & 2")# 注意之后记得把标题换到下方，figure的标题在下方
+```

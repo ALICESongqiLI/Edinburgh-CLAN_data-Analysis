@@ -1,0 +1,364 @@
+---
+title: "FLA"
+author: "alice"
+date: "2022/7/27"
+output: html_document
+---
+getwd()
+setwd('C:/Users/Dell/Desktop/CLAN PROJECT')
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+# install.packages("tidyverse")
+install.packages("tidyverse")
+install.packages("emmeans")
+install.packages("ggfortify")
+install.packages("readxl")
+library(tidyverse)
+library(readxl)
+library(ggfortify)
+library(dplyr)
+
+```
+#数据分类，按照BROWN'S STAGE分: MLU1-2; MLU2-2.5
+先数据分类，按照previous_phase = 1,2,3分别分为三个小数据框
+
+```{r}
+
+data0 <- read_excel("Data0_Study1_N14.xlsx")
+data0_chi <- data0 %>% 
+  filter(group == "child")
+data0_mot <- data0 %>% 
+  filter(group == "mother")
+
+#数据按BrownI/II分
+data0BI <- data0 %>% 
+  filter(MLU < 2)
+data0BII <- data0 %>% 
+  filter(MLU >= 2)
+#数据按P1/2/3分
+data0P1 <- data0 %>% 
+  filter(developmental_phase == 1)
+data0P2 <- data0 %>% 
+  filter(developmental_phase == 2)
+data0P3 <- data0 %>% 
+  filter(developmental_phase == 3)
+# 将小孩数据分类
+data1_chi_B1 <- data0_chi %>% 
+  filter(MLU < 2)
+data1_chi_B2 <- data0_chi %>% 
+  filter(MLU >= 2)
+data1_chi_P1 <- data0_chi %>% 
+  filter(developmental_phase == 1)
+data1_chi_P2 <- data0_chi %>% 
+  filter(developmental_phase == 2)
+data1_chi_P3 <- data0_chi %>% 
+  filter(developmental_phase == 3)
+# 将妈妈数据分类
+#按照Brown
+data1_mot_B1 <- data0_mot %>% 
+  filter(MLU < 2)
+data1_mot_B2 <- data0_mot %>% 
+  filter(MLU >=2)
+data1_mot_P1 <- data0_mot %>% 
+  filter(developmental_phase == 1)
+data1_mot_P2 <- data0_mot %>% 
+  filter(developmental_phase == 2)
+data1_mot_P3 <- data0_mot %>% 
+  filter(developmental_phase == 3)
+```
+```{r}
+#数据分析看是否符合各种假设
+# test anova assumptions for normality发现其实数据不太符合正态分布
+#考虑一下是否用对标的非参数检验Wilcoxon signed-rank test
+shapiro.test(data0[data0$group == "child",]$overlap) #Shapiro-wilk *p=0.001
+shapiro.test(data0[data0$group == "mother",]$overlap) #*p=0.09
+
+```
+
+## Study 1
+#在BrownI/II儿童/母亲分阶段以及总体与TokensPerNounType的相关性
+Correlation between overlap measure - tokens per nouns type
+"The relation between variation in overlap is investigated by correlating both the child & caregivier measures with the average mumber of tokens per noun type that contributed to the scores for each caregiver-child pair. "
+```{r child correlation test}
+# 整体MLU和overlap之间的correlation（结果无显著相关性，p=0.15）
+with(data0_chi, cor.test(MLU, overlap, method = "pearson", alternative = "two.sided"))
+#Brown stage i(结果无显著相关性，p=0.6657)
+with(data1_chi_B1, cor.test(MLU, overlap, method = "pearson", alternative = "two.sided"))
+#Brown stageii 数据观测值不够无法计算
+with(data1_chi_B2, cor.test(MLU, overlap, method = "pearson", alternative = "two.sided"))
+
+#整体MLU与TokensPerNounType的相关性(结果无显著相关性，但p=0.87)
+with(data0_chi, cor.test(tokens_per_noun_type, overlap, method = "pearson", alternative = "two.sided"))
+#Brown stage i(结果无显著相关性，p=0.80)
+with(data1_chi_B1, cor.test(tokens_per_noun_type, overlap, method = "pearson", alternative = "two.sided"))
+#Brown stageii 数据观测值不够无法计算
+with(data1_chi_B2, cor.test(tokens_per_noun_type, overlap, method = "pearson", alternative = "two.sided"))
+
+#TPNY与
+
+```
+```{r mother correlation test}
+# 整体ChildcontrolledMLU和overlap之间的correlation（结果无显著相关性，p=0.359）
+with(data0_mot, cor.test(MLU, overlap, method = "pearson", alternative = "two.sided"))
+#Brown stage i(结果无相关性，p=0.3627)
+with(data1_mot_B1, cor.test(MLU, overlap, method = "pearson", alternative = "two.sided"))
+#Brown stageii 数据观测值不够无法计算
+with(data1_mot_B2, cor.test(MLU, overlap, method = "pearson", alternative = "two.sided"))
+
+
+# !!整体TPNT和overlap之间的correlation（结果边缘显著相关性，*p=0.09）
+with(data0_mot, cor.test(tokens_per_noun_type, overlap, method = "pearson", alternative = "two.sided"))
+#Brown stage i(结果显著相关性，p=0.190)
+with(data1_mot_B1, cor.test(tokens_per_noun_type, overlap, method = "pearson", alternative = "two.sided"))
+#Brown stageii （数据观测值不够无法计算
+with(data1_mot_B2, cor.test(tokens_per_noun_type, overlap, method = "pearson", alternative = "two.sided"))
+```
+
+
+#儿童与母亲overlap的对比 0.05-0.1
+Paired Sample T-test
+"Whether there are substaintial differences in overlap in chi & mor"
+```{r paired t-test}
+#箱图显示数据差距
+library(ggplot2)
+ggplot(data0, aes(group,overlap))+geom_boxplot()#总体差别不大
+ggplot(data0BI, aes(group,overlap))+geom_boxplot()#BI
+ggplot(data0BII, aes(group,overlap))+geom_boxplot()#BII
+ggplot(data0P1, aes(group,overlap))+geom_boxplot()#P1 看起来挺大
+ggplot(data0P2, aes(group,overlap))+geom_boxplot()#P2
+ggplot(data0P3, aes(group,overlap))+geom_boxplot()#P3 看起来挺大
+
+#边缘性显著0.05<p<0.1
+##做T-TEST为什么没有显著差异，是因为有些前提假设不符合吗？不，问题核心在于没有分阶段所以总体赶上了
+#整体对比 (结果无显著差异，p=0.88)
+t.test(data0_chi$overlap, data0_mot$overlap, paired=TRUE, var.equal=TRUE)
+#Brown stage i(结果无显著差异，p=0.5036)
+t.test(data1_chi_B1$overlap, data1_mot_B1$overlap, paired=TRUE, var.equal=TRUE)
+#Brown stageii （结果无显著差异，p=0.5242）
+t.test(data1_chi_B2$overlap, data1_mot_B2$overlap, paired=TRUE, var.equal=TRUE)
+#P1(结果无显著差异，p=0.3661; )
+t.test(data1_chi_P1$overlap,data1_mot_P1$overlap , paired=TRUE, var.equal=TRUE)
+#P2(结果无显著差异，p=0.91)
+t.test(data1_chi_P2$overlap,data1_mot_P2$overlap , paired=TRUE, var.equal=TRUE)
+#P3(结果无显著差异，p=0.52)
+t.test(data1_chi_P3$overlap,data1_mot_P3$overlap , paired=TRUE, var.equal=TRUE)
+## Wilcoxon signed-rank test on 
+data3 <- read_excel("Data0_Study1_MOT-CHI.xlsx")
+
+#数据按P1/2/3分
+data3_p1 <- data3 %>% 
+  filter(Phase == 1)
+data3_p2 <- data3 %>% 
+  filter(Phase == 2)
+data3_p3 <- data3 %>% 
+  filter(Phase == 3)
+data3_B1 <- data3 %>% 
+  filter(MLU < 2)
+data3_B2 <- data3 %>% 
+  filter(MLU >= 2)
+install.packages("coin")
+#library(coin)
+?wilcox.test
+poverall = wilcox.test(data3$MOT_overlap,data3$CHI_overlap,paired=T)#p=0.90 overall
+pB1 = wilcox.test(data3_B1$MOT_overlap,data3_B1$CHI_overlap,paired=T)#p=0.54 ,B1
+PB2 = wilcox.test(data3_B2$MOT_overlap,data3_B2$CHI_overlap,paired=T)#P=1 ,B2
+pP1 = wilcox.test(data3_p1$MOT_overlap,data3_p1$CHI_overlap,paired=T)#p=0.375 #P1
+pP2= wilcox.test(data3_p2$MOT_overlap,data3_p2$CHI_overlap,paired=T)#p=1 #P2
+pP3= wilcox.test(data3_p3$MOT_overlap,data3_p3$CHI_overlap,paired=T)#p=1 #P3
+p.adjust(c(poverall$p.value, pB1$p.value, PB2$p.value,PB2$p.value), method="holm")#post hoc
+
+
+#做Regression换个广义线性回归拟合，包含了非正态回归的分析。TPNT潜在协变量
+#对小孩和妈妈做linear mixed effect regression analysis,拟合显著但组间差异不大p=0.87
+model2 <- glm(formula = overlap ~ group, data = data0)
+summary(model2)
+#p=0.11无显著
+data3 <- read_excel("Data0_Study1_MOT-CHI.xlsx")
+model3 <- glm(formula = overlap_difference ~ MLU, data = data3)
+summary(model3)
+#!!!模型不显著但MLU *P=0.0951
+model4 <- glm(formula = overlap_difference ~ MLU + tokens_per_noun_type, data = data3)
+summary(model4)
+
+```
+
+`
+##Study 2
+#因为非正态分布，所以先用GLM吧
+```{r}
+dataStudy2 <- read_excel("Study2.xlsx")
+dataStudy2$test = factor(dataStudy2$test) # convert to nominal factor
+modelStudy2 <- glm(formula = overlap ~ group * test, data = dataStudy2)
+summary(modelStudy2)
+#post hoc analysis using pairwise comparison
+#模型不显著，组间不显著,Test显著p=0.043
+
+```
+
+#2x2 repeated measure ANOVA, the 1st factor is Participant(Chi,Mor);2nd factor is Developmental Phase(P1,P2)
+```{r}
+modelStudy2.1 <- aov(overlap ~ test*group, data = dataStudy2)#
+summary(modelStudy2.1)
+
+modelStudy2.1 <- aov(overlap ~ group*test, data = dataStudy2)#
+summary(modelStudy2.1)
+
+modelStudy2_16 <- aov(overlap ~ group*test, data = dataStudy2)#
+
+study2_16
+
+#manual post hoc pairwise comparison
+data2.1 <- read_excel("study2.1.xlsx")
+test12c = 
+  t.test(data2.1[data2.1$group=="child",]$test1, data2.1[data2.1$group=="child",]$test2, paired =TRUE)#TEST1VS2 CHILD p=0.21
+test12m = 
+  t.test(data2.1[data2.1$group=="mother",]$test1, data2.1[data2.1$group=="mother",]$test2, paired =TRUE)#TEST1VS2 Mother p=0.41
+test1cm = 
+  t.test(data2.1[data2.1$group=="child",]$test1, data2.1[data2.1$group=="mother",]$test1, paired =TRUE)#TEST1 child vs mother p=0.23
+test2cm = 
+  t.test(data2.1[data2.1$group=="child",]$test2, data2.1[data2.1$group=="mother",]$test2, paired =TRUE)#TEST2 child vs morther p=0.7
+p.adjust(c(test12c$p.value, test12m$p.value, test1cm$p.value,test2cm$p.value), method="holm")#post hoc
+
+#画一个线型图+箱图
+class(dataStudy2$test)
+dataStudy2$test = as.numeric(dataStudy2$test) # convert to nominal factor
+ggplot(dataStudy2,aes(Situation,overlap))+geom_boxplot()#总体差别不大
+# line plot 正式版
+# v1.基于selected data,即两次test point都有有效值（共三组数据）
+dataStudy2_selected <- read_excel("Study2-1_selected_data.xlsx")
+ggplot(dataStudy2_selected, aes(x = test, y = overlap, group = group)) +
+  geom_line(aes(linetype = group)) +
+  labs(title = "Fig1. Analysis of Study2: The line chart of mother and child overlap (selected data) at test 1 & 2")#
+```
+#补全NA缺失值后的分析
+```{r}
+modelStudy2.5 <- aov(overlap ~ group*test, data = data0)#test边缘性显著，交互显著
+summary(modelStudy2.5)
+
+modelStudy2.5 <- aov(overlap ~ test*group, data = data0)#test边缘性显著，交互显著
+summary(modelStudy2.5)
+
+dataStudy2_16 <- read_excel("study2_16.xlsx")
+modelStudy2_16<- aov(overlap ~ group*test, data = dataStudy2_16)#test显著，交互不显著
+summary(modelStudy2_16)
+
+#作图
+data2.2 <- read_excel("study2.2.xlsx")
+t.test(data2.2[data2.2$group=="child",]$test1, data2.2[data2.2$group=="child",]$test2, paired =TRUE)#TEST1VS2 CHILD *p=0.0095
+t.test(data2.2[data2.2$group=="mother",]$test1, data2.2[data2.2$group=="mother",]$test2, paired =TRUE)#TEST1VS2 Mother *p=0.085
+t.test(data2.2[data2.2$group=="child",]$test1, data2.2[data2.2$group=="mother",]$test1, paired =TRUE)#TEST1 child vs mother *p=0.059
+t.test(data2.2[data2.2$group=="child",]$test2, data2.2[data2.2$group=="mother",]$test2, paired =TRUE)#TEST2 child vs mother p=0.922
+
+#16
+data2.2_16 <- read_excel("study2_16pairwise.xlsx")
+t.test(data2.2_16[data2.2_16$group=="child",]$test1, data2.2_16[data2.2_16$group=="child",]$test2, paired =TRUE)#TEST1VS2 CHILD *p=0.01276
+t.test(data2.2_16[data2.2_16$group=="mother",]$test1, data2.2_16[data2.2_16$group=="mother",]$test2, paired =TRUE)#TEST1VS2 Mother *p=0.08626
+t.test(data2.2_16[data2.2_16$group=="child",]$test1, data2.2_16[data2.2_16$group=="mother",]$test1, paired =TRUE)#TEST1 child vs mother *p=0.06198
+t.test(data2.2_16[data2.2_16$group=="child",]$test2, data2.2_16[data2.2_16$group=="mother",]$test2, paired =TRUE)#TEST2 child vs mother p=0.920
+ggplot(dataStudy2_full, aes(x = test, y = overlap, group = group)) +
+  geom_line(aes(linetype = group)) 
+
+
+summary(data0)
+FigThree <- ggplot(data0, aes(situation,overlap))+geom_boxplot()#总体差别不大
+ggsave("Figure3.png", FigThree, width =5, height = 3.5, dpi = 300)
+# line plot 正式版
+# v2.基于full data,即两次test point中有NA的地方算作0计算（共14组数据）
+dataStudy2_full <- read_excel("Study2-2_full_data.xlsx")
+ggplot(dataStudy2_full, aes(x = test, y = overlap, group = group)) +
+  geom_line(aes(linetype = group)) +
+  labs(title = "Fig2. Analysis of Study2: The line chart of mother and child overlap (full data) at test 1 & 2")# 注意之后记得把标题换到下方，figure的标题在下
+
+# n=16
+dataStudy2_16full <- read_excel("Study2-2_16full_data.xlsx")
+ggplot(dataStudy2_16full, aes(x = test, y = overlap, group = group)) +
+  geom_line(aes(linetype = group)) +
+  labs(title = "Fig2. Analysis of Study2_16: The line chart of mother and child overlap (full data) at test 1 & 2")#
+```
+
+
+
+##Study 3
+考虑一下多因素协方差，
+数据总结MLU 多次测量的组内变量，其他为组间变量。涉及到组间，组内和交互效应
+3个因变量[ continuous numerical covariable干扰协变量(MLU), categorical factor 2 level出生顺序(BirthOrder1/2), factor 2 level Class(Middle/Working)],自变量Overlap score
+需要控制的相同变量MLU的情况下，不同出生顺序，不同阶层对OVERLAP SCORE的影响
+```{r}
+with(data0_chi,interaction.plot(social_class, ))
+```
+
+方差分析属于回归分析的一种，只不过线性回归的因变量Y一般连续性变量,线性拟合要求预测变量是数值形，而当自变量X是因子factor时研究关注会从预测转向不同组间的比较，即为方差分析。
+```{r factorial ANCOVA}
+重新思考一下，出生顺序和父母家庭阶级应该再INPUT层面都有影响，确定这个是正确的函数吗？
+fit <- aov(因变量overlap ~  协变量MLU + 自变量BR * Class )
+
+modelStudy3 <- glm(formula = overlap ~ social_class * first_born_or_not, data = data0_chi)
+summary(modelStudy3)
+
+modelStudy3.1 <- glm(formula = overlap ~ tokens_per_noun_type + social_class + first_born_or_not, data = data0_chi)
+summary(modelStudy3.1)
+
+
+modelStudy3.1.1 <- glm(formula = overlap ~ tokens_per_noun_type * social_class * first_born_or_not, data = data0_chi)
+summary(modelStudy3.1.1)
+
+fit1 <- aov(overlap ~  social_class * first_born_or_not  , data = data0_chi)
+summary(fit1) #mlu为主效应
+
+#从mlu看input的影响
+fitmlu <- aov(MLU ~ social_class * first_born_or_not  , data = data0_chi)
+summary(fitmlu)
+
+#选定的模型
+data3mean <- read_excel("study3mean.xlsx")
+data3mean$first_born_or_not = factor(data3mean$first_born_or_not) # convert to nominal factor
+FigFour <- ggplot(data3mean, aes(x = social_class, y = overlap, group = first_born_or_not)) +
+  geom_line(aes(linetype = first_born_or_not))
+ggsave("Figure4.png", FigFour, width = 5, height = 3.5, dpi = 300)#h直接保存到了输出路径
+#作图
+
+fit1 <- aov(overlap ~  MLU * social_class * first_born_or_not  , data = data0_chi)
+summary(fit1) #mlu为主效应
+?interaction.plot()
+
+
+contrasts(dataWorking$first_born_or_not) <-
+
+dataWorking <- data0_chi %>% 
+  filter(social_class=="working")
+dataMiddle <- data0_chi %>% 
+  filter(social_class=="middle")
+#post hoc analysis using pairwise comparison
+t.test(dataWorking[dataWorking$first_born_or_not=="1",]$overlap, dataMiddle[dataMiddle$first_born_or_not=="1",]$overlap)#1B W VS M p=0.696
+t.test(dataWorking[dataWorking$first_born_or_not=="0",]$overlap, dataMiddle[dataMiddle$first_born_or_not=="0",]$overlap) #2B W VS M p=0.93
+t.test(dataWorking[dataWorking$first_born_or_not=="1",]$overlap, dataWorking[dataWorking$first_born_or_not=="0",]$overlap)#W 1B VS 2B p=0.490
+t.test(dataMiddle[dataMiddle$first_born_or_not=="1",]$overlap, dataMiddle[dataMiddle$first_born_or_not=="0",]$overlap)#MIDDLE 1B VS 2B p=0.77
+
+
+fit2 <- aov(overlap ~  tokens_per_noun_type * social_class * first_born_or_not, data = data0_chi)
+summary(fit2)
+
+
+```
+
+模型对比
+```{r}
+library(tidyverse)
+#install.packages("leaps")
+library(leaps)
+head(data0_chi)
+leaps <- regsubesets(overlap~., data=data0_chi,nbest=2)
+plot(leaps,scale= "adjr2")
+```
+
